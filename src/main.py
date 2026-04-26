@@ -3,7 +3,7 @@ import os
 
 from data_utils import download_text, load_text, ARTIFACTS_DIR
 from tokenizer import build_vocab, Tokenizer
-from dataset import GPTLoader
+from dataset import create_gpt_dataloader
 
 
 def main() -> None:
@@ -32,11 +32,11 @@ def main() -> None:
     print("\nContext -> Target examples:")
     for i in range(5):
         context = tokenized_text[:i]
-        target = tokenized_text[i + 1]
+        target = tokenized_text[i]
         print(f"  Context: {tk.decode(context)!r:30s} -> {tk.decode([target])!r}")
 
     # DataLoader demo: one batch
-    dataloader = GPTLoader(raw_text, tokenizer=tk, max_len=3, stride=1, batch_size=1)
+    dataloader = create_gpt_dataloader(raw_text, tokenizer=tk, max_len=3, stride=1, batch_size=1)
     for inputs, targets in dataloader:
         print(f"\nSample batch — inputs: {inputs}, targets: {targets}")
         break

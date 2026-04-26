@@ -1,4 +1,4 @@
-# LLMs from Scratch — Chapter 2
+# LLMs from Scratch 
 
 Tokenization and dataset preparation for GPT-style language models, following the *Build a Large Language Model (From Scratch)* book by Sebastian Raschka.
 

@@ -24,5 +24,5 @@ def download_text(url: str = DATA_URL, file_path: str = DEFAULT_FILE) -> None:
 
 def load_text(file_path: str = DEFAULT_FILE) -> str:
     """Read and return the contents of a text file."""
-    with open(file_path, "r") as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
