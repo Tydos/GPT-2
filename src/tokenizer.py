@@ -1,16 +1,16 @@
 import re
 from typing import Iterable
 
-_PATTERN = re.compile(r"(\W+)")
+_PATTERN = re.compile(r'([,.:;?_!"()\']|--|\s)')
 
 
-def build_vocab(text: str) -> tuple[list[str], dict[str, int]]:
+def build_vocab(text: str) -> dict[str, int]:
     """Build a vocab set {word->int} mapping"""
-    tokens = [t.strip() for t in _PATTERN.split(text.lower()) if t.strip()]
+    tokens = [t for t in _PATTERN.split(text.lower()) if t and not t.isspace()]
     all_words: list[str] = sorted(set(tokens))
     all_words.extend(["<unk>", "<eos>"])
     vocab: dict[str, int] = {word: idx for idx, word in enumerate(all_words)}
-    return all_words, vocab
+    return vocab
 
 
 class Tokenizer:
@@ -19,8 +19,10 @@ class Tokenizer:
         self.int_to_str = {v: k for k, v in vocab.items()}
 
     def encode(self, text: str) -> list[int]:
-        tokens = [t.strip() for t in _PATTERN.split(text.lower()) if t.strip()]
-        return [self.str_to_int.get(t, self.str_to_int["<unk>"]) for t in tokens]
+        tokens = [t for t in _PATTERN.split(text.lower()) if t and not t.isspace()]
+        ids = [self.str_to_int.get(t, self.str_to_int["<unk>"]) for t in tokens]
+        ids.append(self.str_to_int["<eos>"])
+        return ids
 
     def decode(self, tokens: Iterable[int]) -> str:
         return " ".join(self.int_to_str.get(t, "<unk>") for t in tokens)
