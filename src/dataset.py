@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from tokenizer import Tokenizer
+from src.tokenizer import Tokenizer
 
 
 class GPTDataset(Dataset):
@@ -14,12 +14,14 @@ class GPTDataset(Dataset):
         stride: step size between windows
     """
 
-    def __init__(self, text: str, tokenizer: Tokenizer, max_len: int, stride: int) -> None:
+    def __init__(
+        self, text: str, tokenizer: Tokenizer, max_len: int, stride: int
+    ) -> None:
         self.input_ids: list[torch.Tensor] = []
         self.target_ids: list[torch.Tensor] = []
 
         tokenized_text = tokenizer.encode(text)
-        for i in range(0, len(tokenized_text) - max_len, stride):
+        for i in range(0, len(tokenized_text) - max_len + 1, stride):
             input_chunk = tokenized_text[i : i + max_len]
             target_chunk = tokenized_text[i + 1 : i + max_len + 1]
             self.input_ids.append(torch.tensor(input_chunk))

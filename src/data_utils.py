@@ -1,18 +1,10 @@
 import os
 import requests
 
-
-DATA_URL = (
-    "https://raw.githubusercontent.com/rasbt/"
-    "LLMs-from-scratch/main/ch02/01_main-chapter-code/"
-    "the-verdict.txt"
-)
-
-ARTIFACTS_DIR = os.path.join(os.path.dirname(__file__), "artifacts")
-DEFAULT_FILE = os.path.join(ARTIFACTS_DIR, "the-verdict.txt")
+from src.config import DATA_URL, DATASET_PATH
 
 
-def download_text(url: str = DATA_URL, file_path: str = DEFAULT_FILE) -> None:
+def download_text(url: str = DATA_URL, file_path: str = DATASET_PATH) -> None:
     """Download a text file if it doesn't already exist."""
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     if not os.path.exists(file_path):
@@ -22,7 +14,7 @@ def download_text(url: str = DATA_URL, file_path: str = DEFAULT_FILE) -> None:
             f.write(response.content)
 
 
-def load_text(file_path: str = DEFAULT_FILE) -> str:
+def load_text(file_path: str = DATASET_PATH) -> str:
     """Read and return the contents of a text file."""
     with open(file_path, "r", encoding="utf-8") as f:
         return f.read()

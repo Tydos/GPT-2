@@ -1,15 +1,20 @@
-# LLMs from Scratch 
+# LLMs from Scratch
 
-Tokenization and dataset preparation for GPT-style language models, following the *Build a Large Language Model (From Scratch)* book by Sebastian Raschka.
+Building a GPT-style language model from scratch, following *Build a Large Language Model (From Scratch)* by Sebastian Raschka.
 
 ## Project Structure
 
 ```
+artifacts/
+  the-verdict.txt   — downloaded training text
+  vocab.json        — saved vocabulary
 src/
-  data_utils.py   — download and load the-verdict.txt
-  tokenizer.py    — vocabulary building and Tokenizer class
-  dataset.py      — GPTDataset (PyTorch Dataset) and GPTLoader
-  main.py         — demo runner
+  config.py         — hyperparameters and paths
+  data_utils.py     — download and load text
+  tokenizer.py      — vocabulary building and Tokenizer class
+  dataset.py        — GPTDataset (sliding-window) and DataLoader factory
+  embeddings.py     — token and positional embeddings
+main.py             — pipeline runner
 requirements.txt
 ```
 
@@ -17,21 +22,19 @@ requirements.txt
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+.venv\Scripts\activate        # Mac/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ## Run
 
 ```bash
-cd src
 python main.py
 ```
 
-## What It Does
+## Pipeline
 
-1. Downloads `the-verdict.txt` (a short story used as training data)
-2. Builds a character-level vocabulary from the text
-3. Encodes the full text into integer token IDs
-4. Demonstrates next-token prediction (context → target pairs)
-5. Creates a PyTorch `DataLoader` using a sliding-window approach
+1. Download `the-verdict.txt` as training data
+2. Build a word-level vocabulary and tokenize the text into integer IDs
+3. Create a PyTorch `DataLoader` using a sliding-window (context → target pairs)
+4. Generate token + positional embeddings and sum them into the model input
