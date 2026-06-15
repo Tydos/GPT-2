@@ -1,5 +1,7 @@
 import re
 from typing import Iterable
+import os
+import json
 
 _PATTERN = re.compile(r'([,.:;?_!"()\']|--|\s)')
 
@@ -11,6 +13,13 @@ def build_vocab(text: str) -> dict[str, int]:
     all_words.extend(["<unk>", "<eos>"])
     vocab: dict[str, int] = {word: idx for idx, word in enumerate(all_words)}
     return vocab
+
+
+def save_vocab(vocab: dict[str, int], file_path: str) -> None:
+    """Save to disk"""
+    os.makedirs(file_path, exist_ok=True)
+    with open(os.path.join(file_path, "vocab.json"), "w") as f:
+        json.dump(vocab, f, indent=2)
 
 
 class Tokenizer:

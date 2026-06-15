@@ -1,11 +1,11 @@
 import json
 import logging
 import os
-from src.config import OUTPUT_DIR, MAX_LEN, STRIDE, BATCH_SIZE, EMBED_DIM
+from src.config import OUTPUT_DIR, MAX_LEN, STRIDE, BATCH_SIZE, EMBED_DIM, VOCAB_SIZE
 from src.data_utils import download_text, load_text
-from src.tokenizer import build_vocab, Tokenizer
+from src.tokenizer import build_vocab, save_vocab, Tokenizer
 from src.dataset import create_gpt_dataloader
-from src.embeddings import generate_input_embedding
+from src.embeddings import Embedding
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -22,14 +22,10 @@ def main() -> None:
     logging.info(f"Loaded text — {len(raw_text)} chars, preview: {raw_text[:40]!r}")
 
     vocab = build_vocab(raw_text)
-    tk = Tokenizer(vocab)
+    save_vocab(vocab, OUTPUT_DIR)
     logging.info(f"Vocab built — {len(vocab)} unique tokens")
 
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    with open(os.path.join(OUTPUT_DIR, "vocab.json"), "w") as f:
-        json.dump(vocab, f, indent=2)
-    logging.info(f"Vocab saved to {OUTPUT_DIR}/vocab.json")
-
+    tk = Tokenizer(vocab)
     tokenized_text = tk.encode(raw_text)
     logging.info(
         f"Encoded — {len(tokenized_text)} tokens, first 10: {tokenized_text[:10]}"
@@ -47,9 +43,8 @@ def main() -> None:
         f"Sample batch — inputs: {inputs.tolist()}, targets: {targets.tolist()}"
     )
 
-    input_emb = generate_input_embedding(
-        inputs[0].tolist(), vocab_size=len(vocab), embed_dim=EMBED_DIM
-    )
+    embed = Embedding(vocab_size=VOCAB_SIZE, embed_dim=EMBED_DIM)
+    input_emb = embed.generate_input_embedding(inputs[0].tolist())
     logging.info(
         f"Embeddings — shape: {list(input_emb.shape)} (seq_len={inputs.shape[1]}, embed_dim={EMBED_DIM})"
     )

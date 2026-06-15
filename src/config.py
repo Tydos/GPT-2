@@ -7,4 +7,4 @@ MAX_LEN = 3
 STRIDE = 1
 BATCH_SIZE = 1
 EMBED_DIM = 256
-VOCAB_SIZE = None
+VOCAB_SIZE = 1078  # specifically for this dataset
