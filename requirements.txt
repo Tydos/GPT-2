@@ -3,3 +3,5 @@ tiktoken
 tqdm
 numpy
 pandas
+matplotlib
+seaborn

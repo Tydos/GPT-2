@@ -1,4 +1,4 @@
-.venv
+venv
 .claude
 pycache/
 __pycache__/

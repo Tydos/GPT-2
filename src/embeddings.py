@@ -23,7 +23,7 @@ class Embedding:
 
     def generate_input_embedding(self, tokens: list[int]) -> torch.Tensor:
         """Token embeddings + positional embeddings — the transformer input."""
-        seq_len = len(tokens)
+        input_sequence_length = len(tokens)
         token_emb = self.generate_token_embedding(tokens)
-        pos_emb = self.generate_positional_embedding(seq_len)
-        return token_emb + pos_emb  # (seq_len, embed_dim)
+        pos_emb = self.generate_positional_embedding(input_sequence_length)
+        return token_emb + pos_emb  # (input_sequence_length, embed_dim)

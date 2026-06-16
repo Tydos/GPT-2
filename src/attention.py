@@ -1,48 +1,33 @@
 import torch
-import tiktoken
-
-sentence = "I love India"
-print(sentence)
-
-# Tokenization
-enc = tiktoken.get_encoding("gpt2")
-token_ids = enc.encode(sentence)
-print(token_ids)
-
-# convert token_id to tensor
-token_ids = torch.tensor(token_ids)
-print(token_ids)
-
-# token embedding
-vocab_size = 50257
-embed_dim = 3
-embedding = torch.nn.Embedding(vocab_size, embed_dim)
-
-# positional embedding
-seq_len = token_ids.shape[0]  # how many words?
-pos_embedding = torch.nn.Embedding(seq_len, embed_dim)
-pos_ids = torch.arange(seq_len)  # [0,1,...]
-
-inputs = embedding(token_ids) + pos_embedding(pos_ids)
-print(inputs)
+import torch.nn as nn
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
-# Step 1: do the dot product between the query and context vectors
-query = inputs[0]
-print("q:", query)
+class SelfAttention(nn.Module):
+    def __init__(self, embed_dim, head_dim):
+        super().__init__()
+        self.W_query = nn.Linear(embed_dim, head_dim, bias=False)  # bias layer is not needed
+        self.W_key = nn.Linear(embed_dim, head_dim, bias=False)
+        self.W_value = nn.Linear(embed_dim, head_dim, bias=False)
+        self.head_dim = head_dim
 
-attention_scores = torch.zeros(inputs.shape[0])  # 6 zeros
-for idx, ele in enumerate(inputs):
-    attention_scores[idx] = torch.dot(query, inputs[idx])
+    def forward(self, x):
+        Q = self.W_query(x)  # (input_sequence_length, head_dim)
+        K = self.W_key(x)  # (input_sequence_length, head_dim)
+        V = self.W_value(x)  # (input_sequence_length, head_dim)
 
-print(attention_scores)
+        scores = Q @ K.T / self.head_dim**0.5
+        weights = torch.softmax(scores, dim=-1)
+        output = weights @ V  # (input_sequence_length, head_dim)
+        return output, weights
 
-# Step 2: softmax normalization (0-1 score)
-attn_weights = torch.softmax(attention_scores, dim=0)  # linear
 
-# Step 3: context vector (weighted sum of weights x score)
-context_vector = torch.zeros(query.shape)  # 3
-for idx, x_i in enumerate(inputs):
-    context_vector += attn_weights[idx] * inputs[idx]
-
-print(context_vector)
+def plot_attention_heatmap(weights: torch.Tensor, tokens: list[str], output_path: str) -> None:
+    sns.heatmap(weights.detach().numpy(), annot=True, fmt=".2f", cmap="Blues",
+                xticklabels=tokens, yticklabels=tokens)
+    plt.xlabel("Key (attended to)")
+    plt.ylabel("Query (attending)")
+    plt.title("Self-Attention Weights")
+    plt.savefig(output_path)
+    plt.close()
