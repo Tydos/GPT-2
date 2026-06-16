@@ -7,4 +7,5 @@ CONTEXT_WINDOW_SIZE = 5
 STRIDE = 1
 BATCH_SIZE = 1
 EMBED_DIM = 10
-HEAD_DIM = 15  # or D_K in the original attention paper
+HEAD_DIM = 5  # each head working on 5 dims, D_K in the original attention paper
+NUM_HEADS = 2  # total embed_dim 5*2 = 10

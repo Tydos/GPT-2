@@ -1,5 +1,4 @@
 import logging
-import os
 from src.config import (
     OUTPUT_DIR,
     CONTEXT_WINDOW_SIZE,
@@ -7,12 +6,13 @@ from src.config import (
     BATCH_SIZE,
     EMBED_DIM,
     HEAD_DIM,
+    NUM_HEADS,
 )
 from src.data_utils import download_text, load_text
 from src.tokenizer import build_vocab, save_vocab, Tokenizer
 from src.dataset import create_gpt_dataloader
 from src.embeddings import Embedding
-from src.attention import SelfAttention, plot_attention_heatmap
+from src.attention import MultiHeadAttention
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -48,7 +48,7 @@ def main() -> None:
     )
 
     embedding = Embedding(vocab_size=len(vocab), embed_dim=EMBED_DIM)
-    attention = SelfAttention(embed_dim=EMBED_DIM, head_dim=HEAD_DIM)
+    mha = MultiHeadAttention(embed_dim=EMBED_DIM, head_dim=HEAD_DIM, num_heads=NUM_HEADS)
     for inputs, targets in dataloader:
         logging.info(
             f"Sample batch — inputs: {inputs.tolist()}, targets: {targets.tolist()}"
@@ -58,13 +58,8 @@ def main() -> None:
             f"Embeddings — shape: {list(x.shape)} (input_sequence_length={inputs.shape[1]}, embed_dim={EMBED_DIM})"
         )
 
-        output, weights = attention(x)
-        logging.info(f"Attention output — shape: {list(output.shape)}")
-
-        tokens = [tokenizer.decode([t]) for t in inputs[0].tolist()]
-        plot_attention_heatmap(
-            weights, tokens, os.path.join(OUTPUT_DIR, "attention_heatmap.png")
-        )
+        output = mha(x)
+        logging.info(f"MHA output — shape: {list(output.shape)}")
         break
 
 
