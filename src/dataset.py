@@ -21,7 +21,7 @@ class GPTDataset(Dataset):
         self.target_ids: list[torch.Tensor] = []
 
         tokenized_text = tokenizer.encode(text)
-        for i in range(0, len(tokenized_text) - max_len + 1, stride):
+        for i in range(0, len(tokenized_text) - max_len, stride):
             input_chunk = tokenized_text[i : i + max_len]
             target_chunk = tokenized_text[i + 1 : i + max_len + 1]
             self.input_ids.append(torch.tensor(input_chunk))
