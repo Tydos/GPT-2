@@ -42,7 +42,7 @@ class CausalSelfAttention(nn.Module):
 
         scores = Q @ K.transpose(-2, -1) / self.head_dim**0.5
         mask = torch.triu(
-            torch.ones(seq_len, seq_len), diagonal=1
+            torch.ones(seq_len, seq_len, device=x.device), diagonal=1
         ).bool()  # not reusing a mask for simplicity, tradeoff - mask created at every forward pass
         scores = scores.masked_fill(mask, float("-inf"))
         weights = torch.softmax(scores, dim=-1)

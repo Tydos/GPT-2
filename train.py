@@ -5,11 +5,13 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.config import BATCH_SIZE, CONTEXT_WINDOW_SIZE, OUTPUT_DIR, STRIDE
+from src.config import BATCH_SIZE, CONTEXT_WINDOW_SIZE, OUTPUT_DIR, STRIDE, OUTPUT_DIR
 from src.data_utils import download_text, load_text
 from src.dataset import create_gpt_dataloader
 from src.gpt_model import GPTModel
 from src.tokenizer import Tokenizer, build_vocab, save_vocab
+import matplotlib.pyplot as plt
+import numpy as np
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -83,7 +85,7 @@ def generate(prompt, num_tokens=20):
 # 7. Train loop
 NUM_EPOCHS = 10
 logging.info(f"Starting training for {NUM_EPOCHS} epochs...\n")
-
+history = []
 for epoch in range(1, NUM_EPOCHS + 1):
     model.train()
     train_loss = 0.0
@@ -112,4 +114,15 @@ for epoch in range(1, NUM_EPOCHS + 1):
     logging.info(
         f"Epoch {epoch:2d}/{NUM_EPOCHS} | train={avg_train:.4f} | val={avg_val:.4f}"
     )
+    history.append((avg_train, avg_val))
     logging.info(f"  Sample: {generate('Gisburn had a curious smile')}\n")
+
+# 8. Visualisation
+history = np.array(history)  # (epochs,2)
+plt.plot(history[:, 0], label="train")
+plt.plot(history[:, 1], label="val")
+plt.legend()
+plt.xlabel("epoch")
+plt.ylabel("loss")
+plt.savefig(os.path.join(OUTPUT_DIR, "train_validation_curve.png"))
+plt.close

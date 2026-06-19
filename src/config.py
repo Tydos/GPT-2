@@ -12,4 +12,4 @@ EMBED_DIM = 64  # number of dimensions
 HEAD_DIM = 32  # GPT-2 always uses head_dim=64
 NUM_HEADS = 2  # embed_dim / head_dim = 128 / 64
 DROP_RATE = 0.1  # dropout rate
-N_LAYER = 1  # number of repeated transformers
+N_LAYER = 12  # number of repeated transformers
