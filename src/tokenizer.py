@@ -2,6 +2,7 @@ import re
 from typing import Iterable
 import os
 import json
+import tiktoken
 
 _PATTERN = re.compile(r'([,.:;?_!"()\']|--|\s)')
 
@@ -35,3 +36,14 @@ class Tokenizer:
 
     def decode(self, tokens: Iterable[int]) -> str:
         return " ".join(self.int_to_str.get(t, "<unk>") for t in tokens)
+
+
+class TikTokenizer:
+    def __init__(self, model_type: str) -> None:
+        self.tokenizer = tiktoken.get_encoding(model_type)
+
+    def encode(self, text: str) -> list[int]:
+        return self.tokenizer.encode(text)
+
+    def decode(self, tokens: Iterable[int]) -> str:
+        return self.tokenizer.decode(list(tokens))

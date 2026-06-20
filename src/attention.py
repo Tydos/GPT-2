@@ -40,12 +40,18 @@ class CausalSelfAttention(nn.Module):
         K = self.W_key(x)
         V = self.W_value(x)
 
+        # We divide by square root of head_dim becuase Q@K.T will have large values, causing softmax to output near 1  -> gradient zero -> learning stalls
         scores = Q @ K.transpose(-2, -1) / self.head_dim**0.5
+
+        # Create a upper triangular mask for masking out tokens ahead of the token, not reusing a mask for simplicity, tradeoff - mask created at every fsorward pass
         mask = torch.triu(
             torch.ones(seq_len, seq_len, device=x.device), diagonal=1
-        ).bool()  # not reusing a mask for simplicity, tradeoff - mask created at every forward pass
+        ).bool()
         scores = scores.masked_fill(mask, float("-inf"))
+
+        # Softmax of negative infinity will be zero,
         weights = torch.softmax(scores, dim=-1)
+
         weights = self.dropout(weights)
         output = weights @ V
         return output, weights

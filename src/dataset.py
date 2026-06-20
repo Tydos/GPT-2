@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from src.tokenizer import Tokenizer
+from src.tokenizer import Tokenizer, TikTokenizer
 
 
 class GPTDataset(Dataset):
@@ -15,7 +15,7 @@ class GPTDataset(Dataset):
     """
 
     def __init__(
-        self, text: str, tokenizer: Tokenizer, max_len: int, stride: int
+        self, text: str, tokenizer: TikTokenizer, max_len: int, stride: int
     ) -> None:
         self.input_ids: list[torch.Tensor] = []
         self.target_ids: list[torch.Tensor] = []
@@ -36,7 +36,7 @@ class GPTDataset(Dataset):
 
 def create_gpt_dataloader(
     text: str,
-    tokenizer: Tokenizer,
+    tokenizer: TikTokenizer,
     max_len: int = 3,
     stride: int = 1,
     batch_size: int = 10,
