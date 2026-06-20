@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from src.tokenizer import Tokenizer, TikTokenizer
+from src.tokenizer import BaseTokenizer
 
 
 class GPTDataset(Dataset):
@@ -15,32 +15,39 @@ class GPTDataset(Dataset):
     """
 
     def __init__(
-        self, text: str, tokenizer: TikTokenizer, max_len: int, stride: int
+        self, text: str, tokenizer: BaseTokenizer, max_len: int, stride: int
     ) -> None:
-        self.input_ids: list[torch.Tensor] = []
-        self.target_ids: list[torch.Tensor] = []
-
-        tokenized_text = tokenizer.encode(text)
-        for i in range(0, len(tokenized_text) - max_len, stride):
-            input_chunk = tokenized_text[i : i + max_len]
-            target_chunk = tokenized_text[i + 1 : i + max_len + 1]
-            self.input_ids.append(torch.tensor(input_chunk))
-            self.target_ids.append(torch.tensor(target_chunk))
+        self.max_len = max_len
+        self.stride = stride
+        self.tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
+        self.num_samples = max(0, (len(self.tokens) - max_len - 1) // stride + 1)
 
     def __len__(self) -> int:
-        return len(self.input_ids)
+        return self.num_samples
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.input_ids[idx], self.target_ids[idx]
+        start = idx * self.stride
+        return (
+            self.tokens[start : start + self.max_len],
+            self.tokens[start + 1 : start + self.max_len + 1],
+        )
 
 
 def create_gpt_dataloader(
     text: str,
-    tokenizer: TikTokenizer,
+    tokenizer: BaseTokenizer,
     max_len: int = 3,
     stride: int = 1,
     batch_size: int = 10,
+    num_workers: int = 0,
+    pin_memory: bool = False,
 ) -> DataLoader:
     """Create a DataLoader from raw text using sliding-window chunking."""
     dataset = GPTDataset(text, tokenizer, max_len, stride)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+    )

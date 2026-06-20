@@ -1,48 +1,48 @@
-# LLMs from Scratch
+# GPT-2 in PyTorch
 
-Building a GPT-style language model from scratch, following *Build a Large Language Model (From Scratch)* by Sebastian Raschka.
+PyTorch implementation of a GPT-style language model built from first principles. Demonstrates transformer internals, tokenization strategies, and end-to-end training + generation.
 
-## Model Architecture
+## Highlights
+- Decoder-only transformer (GPT architecture)
+- Custom multi-head causal self-attention
+- Word-level + GPT-2 BPE tokenization (tiktoken)
+- Sliding-window dataset for next-token prediction
+- Training loop with AdamW + cross-entropy
+- Text generation via greedy decoding
+- Outputs: model checkpoints + loss curves
 
-Architecture follows GPT-2 proportions scaled to a custom word-level vocab.
+## Architecture
+- Token + positional embeddings  
+- N × Transformer blocks:
+  - Causal self-attention
+  - Feed-forward network
+  - LayerNorm  
+- Linear output head → vocabulary logits
 
-| Component | Calculation | Params |
-|---|---|---|
-| Token embedding | 1078 × 128 | 138,000 |
-| Position embedding | 1024 × 128 | 131,072 |
-| Output head (linear) | 128 × 1078 | 138,000 |
-| MultiHead Attention per block | 4 × (128 × 128) projections | 65,536 |
-| Feed Forward Network per block | (128×512) + (512×128) + biases | 131,584 |
-| LayerNorm per block | 2 × 2 × 128 | 512 |
-| **3 transformer blocks** | 3 × (65,536 + 131,584 + 512) | 593,000 |
-| **Total** | | **~951,424** |
+## Configs
 
-## Example
-
-Prompt : "Gisburn had a curious smile in his eyes."
-
-Generated: "gisburn had a curious smile in his eyes . <eos> endless hanging gone hang inflexible genial fact admirers must endless on cleverer ll silver welcome established claimed set hang foreseen"
-
-## Setup
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate        # Mac/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Run
-
-```bash
-python main.py
-```
+| Config     | Dim | Heads | Layers | Vocab  | Use Case      |
+|------------|-----|-------|--------|--------|---------------|
+| CPU_CONFIG | 64  | 2     | 1      | Dynamic| Debug/local   |
+| GPU_CONFIG | 768 | 12    | 12     | 50257  | Full training |
 
 ## Pipeline
+1. Load dataset  
+2. Tokenize (word-level or BPE)  
+3. Create context → target pairs  
+4. Forward pass → logits  
+5. Optimize (AdamW, cross-entropy)  
+6. Track loss + save artifacts  
+7. Generate sample text per epoch  
 
-1. Download `the-verdict.txt` as training data
-2. Build a word-level vocabulary and tokenize the text into integer IDs
-3. Create a PyTorch `DataLoader` using a sliding-window (context → target pairs)
-4. Generate token + positional embeddings and sum them into the model input
-5. Run multi-head causal self-attention (`MultiHeadAttention`) on the embeddings — each head applies a causal mask so position `i` cannot attend to positions `j > i`
-6. Pass embeddings through `GPTModel` (token + positional embeddings → 3 transformer blocks → LayerNorm → linear output head) to produce logits over the vocabulary
-7. Greedily decode a prompt by repeatedly picking the highest-probability next token
+## Usage
+
+```bash
+python -m venv venv
+venv\Scripts\activate        # Mac/Linux: source venv/bin/activate
+pip install -r requirements.txt
+
+python main.py
+python main.py --tokenizer tiktoken
+python main.py --gpu
+python main.py --sample-prompt "She walked into the room" --data-url <url>
