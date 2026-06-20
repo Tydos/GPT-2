@@ -1,10 +1,9 @@
 import os
 from dataclasses import dataclass
 
-
-DATA_URL = "https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch02/01_main-chapter-code/the-verdict.txt"
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "artifacts")
-DATASET_PATH = os.path.join(OUTPUT_DIR, "dataset.txt")
+DEFAULT_DATA_URL = "https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch02/01_main-chapter-code/the-verdict.txt"
+DEFAULT_DATASET_PATH = os.path.join(os.path.dirname(__file__), "..", "artifacts", "dataset.txt")
+DEFAULT_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "artifacts")
 
 
 @dataclass(frozen=True)
@@ -21,7 +20,6 @@ class GPTConfig:
     n_layer: int
     num_epochs: int
     num_workers: int
-
     lr: float
 
 
@@ -43,16 +41,16 @@ CPU_CONFIG = GPTConfig(
 
 GPU_CONFIG = GPTConfig(
     vocab_size=50257,
-    context_window_size=512,
+    context_window_size=256,
     context_length=1024,
-    batch_size=64,
+    batch_size=32,
     stride=32,
     embed_dim=768,
     head_dim=64,
     num_heads=12,
     drop_rate=0.0,
     n_layer=12,
-    num_epochs=1,
+    num_epochs=10,
     num_workers=4,
     lr=3e-4,
 )

@@ -6,8 +6,14 @@ import matplotlib.pyplot as plt
 import torch
 
 from dataclasses import replace
-from src.config import CPU_CONFIG, GPU_CONFIG, OUTPUT_DIR
-from src.data_utils import download_text, load_text
+from src.config import (
+    CPU_CONFIG,
+    GPU_CONFIG,
+    DEFAULT_DATA_URL,
+    DEFAULT_DATASET_PATH,
+    DEFAULT_OUTPUT_DIR,
+)
+from src.data_utils import download_text, load_text, load_wikitext
 from src.dataset import create_gpt_dataloader
 from src.gpt_model import GPTModel
 from src.tokenizer import build_vocab, SimpleTokenizer, TikTokenizer
@@ -24,7 +30,9 @@ def parse_args():
     parser.add_argument("--gpu", action="store_true")
     parser.add_argument("--sample-prompt", type=str, default=None)
     parser.add_argument("--tokenizer", choices=["simple", "tiktoken"], default="simple")
-    parser.add_argument("--data-url", type=str, default=None)
+    parser.add_argument("--data-url", type=str, default=DEFAULT_DATA_URL)
+    parser.add_argument("--dataset-path", type=str, default=DEFAULT_DATASET_PATH)
+    parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR)
     return parser.parse_args()
 
 
@@ -34,11 +42,17 @@ if __name__ == "__main__":
     sample_prompt = args.sample_prompt or "Gisburn had a evil smile, and"
 
     logging.info("Loading data...")
-    if args.data_url:
-        download_text(url=args.data_url)
-    raw_text = load_text()
+    download_text(url=args.data_url, file_path=args.dataset_path)
+    raw_text = load_text(file_path=args.dataset_path)
     logging.info(f"  {len(raw_text):,} chars loaded")
+
     tokenizer = None
+    train_text, val_text = load_wikitext()
+    # split = int(len(raw_text) * 0.9)
+    # train_text = raw_text[:split]
+    # val_text = raw_text[split:]
+    logging.info(f"train_text:{train_text[:10]}")
+
     if args.tokenizer == "tiktoken":
         tokenizer = TikTokenizer("gpt2")
     else:
@@ -46,9 +60,8 @@ if __name__ == "__main__":
         tokenizer = SimpleTokenizer(vocab)
         cfg = replace(cfg, vocab_size=len(vocab))
 
-    split = int(len(raw_text) * 0.9)
     train_loader = create_gpt_dataloader(
-        raw_text[:split],
+        train_text,
         tokenizer=tokenizer,
         max_len=cfg.context_window_size,
         stride=cfg.stride,
@@ -56,7 +69,7 @@ if __name__ == "__main__":
         num_workers=cfg.num_workers,
     )
     val_loader = create_gpt_dataloader(
-        raw_text[split:],
+        val_text,
         tokenizer=tokenizer,
         max_len=cfg.context_window_size,
         stride=cfg.stride,
@@ -91,8 +104,9 @@ if __name__ == "__main__":
     plt.legend()
     plt.xlabel("epoch")
     plt.ylabel("loss")
-    plt.savefig(os.path.join(OUTPUT_DIR, "train_validation_curve.png"))
+    os.makedirs(args.output_dir, exist_ok=True)
+    plt.savefig(os.path.join(args.output_dir, "train_validation_curve.png"))
     plt.close()
 
-    torch.save(model.state_dict(), os.path.join(OUTPUT_DIR, "model.pth"))
+    torch.save(model.state_dict(), os.path.join(args.output_dir, "model.pth"))
     logging.info("Saved model")
