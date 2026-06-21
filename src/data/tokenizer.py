@@ -10,7 +10,7 @@ _PATTERN = re.compile(r'([,.:;?_!"()\']|--|\s)')
 
 
 def build_vocab(text: str) -> dict[str, int]:
-    """Build a vocab set {word->int} mapping"""
+    """Build a vocab dict {word -> int} from raw text."""
     tokens = [t for t in _PATTERN.split(text.lower()) if t and not t.isspace()]
     all_words: list[str] = sorted(set(tokens))
     all_words.extend(["<unk>", "<eos>"])
@@ -31,8 +31,9 @@ class BaseTokenizer(ABC):
     def decode(self, tokens: Iterable[int]) -> str: ...
 
 
-# Vanilla Toknenizer that creates a str->int map through the whole dataset
 class SimpleTokenizer(BaseTokenizer):
+    """Vanilla tokenizer that builds a str→int map over the whole dataset."""
+
     def __init__(self, vocab: dict[str, int]) -> None:
         self.str_to_int = vocab
         self.int_to_str = {v: k for k, v in vocab.items()}
@@ -47,8 +48,9 @@ class SimpleTokenizer(BaseTokenizer):
         return " ".join(self.int_to_str.get(t, "<unk>") for t in tokens)
 
 
-# Optimised BPE tokenizer used in GPT2
 class TikTokenizer(BaseTokenizer):
+    """BPE tokenizer used in GPT-2, via the tiktoken library."""
+
     def __init__(self, model_type: str) -> None:
         self.tokenizer = tiktoken.get_encoding(model_type)
 

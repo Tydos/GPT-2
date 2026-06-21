@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from src.config import GPTConfig
-from src.transformers import Transformer
-from src.norm import LayerNorm
+from src.model.config import GPTConfig
+from src.model.transformer import Transformer
+from src.model.norm import LayerNorm
 
 
 class GPTModel(nn.Module):
@@ -12,12 +12,11 @@ class GPTModel(nn.Module):
         self.position_embedding = nn.Embedding(config.context_length, config.embed_dim)
         self.dropout_layer = nn.Dropout(config.drop_rate)
         self.transformer_blocks = nn.Sequential(
-            *[Transformer({"EMBED_DIM": config.embed_dim, "HEAD_DIM": config.head_dim,
-                           "NUM_HEADS": config.num_heads, "DROP_RATE": config.drop_rate})
-              for _ in range(config.n_layer)]
+            *[Transformer(config) for _ in range(config.n_layer)]
         )
         self.final_norm = LayerNorm(config.embed_dim)
         self.output_head = nn.Linear(config.embed_dim, config.vocab_size, bias=False)
+        self.output_head.weight = self.token_embedding.weight # tied weights with output head and embedding layer
 
     def forward(self, input):
         batch_size, sequence_length = input.shape

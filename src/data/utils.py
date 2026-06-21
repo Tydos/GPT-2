@@ -18,13 +18,11 @@ def load_text(file_path: str) -> str:
 
 
 def load_wikitext() -> tuple[str, str]:
-
     dataset = load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1")
 
     train_text = "\n".join(dataset["train"]["text"][:3000])
     val_text = "\n".join(dataset["validation"]["text"][:500])
 
-    # Clean up empty lines in the dataset
     train_text = "\n".join(line for line in train_text.splitlines() if line.strip())
     val_text = "\n".join(line for line in val_text.splitlines() if line.strip())
 

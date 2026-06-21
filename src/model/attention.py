@@ -7,21 +7,19 @@ import seaborn as sns
 class SelfAttention(nn.Module):
     def __init__(self, embed_dim, head_dim):
         super().__init__()
-        self.W_query = nn.Linear(
-            embed_dim, head_dim, bias=False
-        )  # bias layer is not needed
+        self.W_query = nn.Linear(embed_dim, head_dim, bias=False)
         self.W_key = nn.Linear(embed_dim, head_dim, bias=False)
         self.W_value = nn.Linear(embed_dim, head_dim, bias=False)
         self.head_dim = head_dim
 
     def forward(self, x):
-        Q = self.W_query(x)  # (input_sequence_length, head_dim)
-        K = self.W_key(x)  # (input_sequence_length, head_dim)
-        V = self.W_value(x)  # (input_sequence_length, head_dim)
+        Q = self.W_query(x)
+        K = self.W_key(x)
+        V = self.W_value(x)
 
         scores = Q @ K.T / self.head_dim**0.5
         weights = torch.softmax(scores, dim=-1)
-        output = weights @ V  # (input_sequence_length, head_dim)
+        output = weights @ V
         return output, weights
 
 
@@ -40,18 +38,16 @@ class CausalSelfAttention(nn.Module):
         K = self.W_key(x)
         V = self.W_value(x)
 
-        # We divide by square root of head_dim becuase Q@K.T will have large values, causing softmax to output near 1  -> gradient zero -> learning stalls
+        # Scale dot-product: large Q@K.T values push softmax to near-1, killing gradients
         scores = Q @ K.transpose(-2, -1) / self.head_dim**0.5
 
-        # Create a upper triangular mask for masking out tokens ahead of the token, not reusing a mask for simplicity, tradeoff - mask created at every fsorward pass
+        # Upper-triangular mask prevents attending to future tokens
         mask = torch.triu(
             torch.ones(seq_len, seq_len, device=x.device), diagonal=1
         ).bool()
         scores = scores.masked_fill(mask, float("-inf"))
 
-        # Softmax of negative infinity will be zero,
         weights = torch.softmax(scores, dim=-1)
-
         weights = self.dropout(weights)
         output = weights @ V
         return output, weights
@@ -60,7 +56,7 @@ class CausalSelfAttention(nn.Module):
 class MultiHeadAttention(nn.Module):
     def __init__(self, embed_dim, head_dim, dropout=0.0, num_heads=2) -> None:
         super().__init__()
-        # stacking multiple heads - slow approach
+        self.out_proj = nn.Linear(embed_dim, embed_dim)  
         self.heads = nn.ModuleList(
             [
                 CausalSelfAttention(embed_dim, head_dim, dropout)
@@ -69,7 +65,7 @@ class MultiHeadAttention(nn.Module):
         )
 
     def forward(self, x):
-        return torch.cat([head(x)[0] for head in self.heads], dim=-1)
+        return self.out_proj(torch.cat([head(x)[0] for head in self.heads], dim=-1))
 
 
 def plot_attention_heatmap(

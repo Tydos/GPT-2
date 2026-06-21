@@ -4,14 +4,14 @@ import torch.nn as nn
 
 class Embedding:
     def __init__(self, vocab_size: int, embed_dim: int) -> None:
-        """Create a embedding matrix"""
+        """Create an embedding matrix."""
         self.embed_dim = embed_dim
         self.embedding = nn.Embedding(
             num_embeddings=vocab_size, embedding_dim=embed_dim
         )
 
     def generate_token_embedding(self, tokens: list[int]) -> torch.Tensor:
-        """Map token IDs to dense vectors"""
+        """Map token IDs to dense vectors."""
         token_tensor = torch.tensor(tokens)
         return self.embedding(token_tensor)  # (seq_len, embed_dim)
 

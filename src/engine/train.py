@@ -3,11 +3,11 @@ import torch.nn.functional as F
 import logging
 import numpy as np
 
-from src.generate_text import generate
+from src.engine.generate import generate_greedy
 
 
 def calc_loss(logits, targets):
-    """Find out the cross entropy between the batch and the target"""
+    """Cross-entropy loss over a batch."""
     B, T, V = logits.shape
     return F.cross_entropy(logits.view(B * T, V), targets.view(B * T))
 
@@ -45,6 +45,6 @@ def train(
             f"Epoch {epoch:2d}/{cfg.num_epochs} | train={avg_train:.4f} | val={avg_val:.4f}"
         )
         history.append((avg_train, avg_val))
-        logging.info(f"  Sample: {generate(model, tokenizer, device, sample_prompt)}\n")
+        logging.info(f"  Sample: {generate_greedy(model, tokenizer, device, sample_prompt)}\n")
 
     return np.array(history)

@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 
-from src.tokenizer import BaseTokenizer
+from src.data.tokenizer import BaseTokenizer
 
 
 class GPTDataset(Dataset):
@@ -9,7 +9,7 @@ class GPTDataset(Dataset):
 
     Args:
         text: raw input text
-        tokenizer: a Tokenizer instance
+        tokenizer: a BaseTokenizer instance
         max_len: number of tokens the model sees as context
         stride: step size between windows
     """
