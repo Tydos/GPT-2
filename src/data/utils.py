@@ -1,3 +1,4 @@
+import re
 import os
 import requests
 from datasets import load_dataset
@@ -20,10 +21,34 @@ def load_text(file_path: str) -> str:
 def load_wikitext() -> tuple[str, str]:
     dataset = load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1")
 
-    train_text = "\n".join(dataset["train"]["text"][:3000])
-    val_text = "\n".join(dataset["validation"]["text"][:500])
+    train_text = "\n".join(dataset["train"]["text"])
+    val_text = "\n".join(dataset["validation"]["text"])
 
-    train_text = "\n".join(line for line in train_text.splitlines() if line.strip())
-    val_text = "\n".join(line for line in val_text.splitlines() if line.strip())
+    train_text = clean_wikitext(train_text)
+    val_text = clean_wikitext(val_text)
 
     return train_text, val_text
+
+def clean_wikitext(text: str) -> str:
+    """Clean WikiText-103 raw text artifacts."""
+    
+    # Remove "@-@" (hyphenation markers in WikiText)
+    text = text.replace("@-@", "-")
+    
+    # Remove other @ markers if present (rare in WikiText but possible)
+    text = re.sub(r'@\S+', '', text)
+    
+    # Remove Wikipedia markup artifacts
+    text = re.sub(r'=\s*[^=]+?\s*=', '', text)  # Section headers like "= Title ="
+    
+    # Remove empty parentheses and brackets
+    text = re.sub(r'\(\s*\)', '', text)
+    text = re.sub(r'\[\s*\]', '', text)
+    
+    # Normalize whitespace (collapse multiple spaces/newlines)
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Remove lines that are just whitespace or empty
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    
+    return '\n'.join(lines)
