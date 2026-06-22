@@ -19,19 +19,22 @@ def calc_cross_entropy_loss(logits, targets):
     B, T, V = logits.shape
     return F.cross_entropy(logits.view(B * T, V), targets.view(B * T))
 
-
 def calc_perplexity(loss: float) -> float:
     return float(np.exp(loss))
 
-
-def train(
-    model, optimizer, train_loader, val_loader, device, cfg, sample_prompt, tokenizer
-):
+def setup_wandb(cfg):
     run = wandb.init(
         entity="pjawale-student",
         project="gpt2-pytorch",
         config=asdict(cfg),
     )
+    return run
+
+def train(
+    model, optimizer, train_loader, val_loader, device, cfg, sample_prompt, tokenizer, 
+    scheduler,
+):
+    run = setup_wandb(cfg)
 
     scaler = GradScaler()
     history = []
@@ -61,8 +64,17 @@ def train(
                     loss = calc_cross_entropy_loss(model(inputs), targets)
 
                 scaler.scale(loss).backward()
+                
+                grad_norm = None
+                if cfg.grad_clip > 0:
+                    scaler.unscale_(optimizer)
+                    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+
+                
                 scaler.step(optimizer)
                 scaler.update()
+                scheduler.step()
+                current_lr = optimizer.param_groups[0]['lr']
 
                 train_loss += loss.item()
                 window_batches += 1
@@ -80,15 +92,16 @@ def train(
                         tok_s=f"{tok_s:,.0f}",
                     )
 
-                    wandb.log(
-                        {
+                    log_dict = {
                             "train/batch_loss": loss.item(),
                             "train/batch_perplexity": calc_perplexity(loss.item()),
                             "train/tok_s": tok_s,
                             "epoch": epoch,
-                        },
-                        step=global_step,
-                    )
+                            "train/lr": current_lr,
+                    }
+                    if grad_norm is not None:
+                        log_dict["train/grad_norm"] = grad_norm.item()
+                    wandb.log(log_dict, step=global_step)
 
             epoch_elapsed = time.perf_counter() - epoch_start
             epoch_tokens = len(train_loader) * tokens_per_batch
@@ -126,7 +139,7 @@ def train(
                 },
                 step=global_step,
             )
-
+            
             history.append((avg_train, avg_val))
             logging.info(f"  Sample: {sample}\n")
 

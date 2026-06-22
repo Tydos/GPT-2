@@ -22,6 +22,14 @@ class GPTConfig:
     num_workers: int
     lr: float
     temperature: float
+    seed: int
+
+    # optimiser 
+    warmup_steps: int
+    grad_clip: float
+
+
+
 
 
 GPT124M_CONFIG = GPTConfig(
@@ -39,4 +47,7 @@ GPT124M_CONFIG = GPTConfig(
     num_workers=4, 
     lr=3e-4,
     temperature=1.0,
+    seed=22,
+    warmup_steps=500,   
+    grad_clip=1.0,
 )
