@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import torch
 from huggingface_hub import hf_hub_download
 
@@ -28,8 +29,13 @@ if __name__ == "__main__":
     cfg = GPT124M_CONFIG
     tokenizer = TikTokenizer("gpt2")
 
-    logging.info(f"Downloading weights from {args.repo_id} ...")
-    weights_path = hf_hub_download(repo_id=args.repo_id, filename=args.filename)
+    local_path = os.path.join("artifacts", "model.pth")
+    if os.path.exists(local_path):
+        weights_path = local_path
+        logging.info(f"Loading local model from {weights_path}")
+    else:
+        logging.info(f"Downloading weights from {args.repo_id} ...")
+        weights_path = hf_hub_download(repo_id=args.repo_id, filename=args.filename)
 
     model = GPTModel(cfg).to(device)
     state_dict = torch.load(weights_path, map_location=device)
