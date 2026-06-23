@@ -63,6 +63,18 @@ train/validation loss curve (`train_validation_curve.png`).
 Hyperparameters (model size, context length, batch size, LR, warmup, etc.) live
 in `GPT124M_CONFIG` in `src/model/config.py`.
 
+## Performance improvements
+
+Training throughput on **NVIDIA A100** (WikiText-103, GPT-2 124M, batch size 32,
+context length 1024, bf16 autocast, 5 epochs each).
+
+| Configuration | Throughput |
+|---------------|------------|
+| Default MHA (`MultiHeadAttention`) | ~40k tok/s |
+| Optimised MHA with SDPA (`MultiHeadAttentionSDPA`) | ~90k tok/s |
+| SDPA + `torch.compile` | TBD |
+
+
 ## Project layout
 
 ```

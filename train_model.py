@@ -93,6 +93,11 @@ if __name__ == "__main__":
             f"Loaded weights (source={args.weights_source}, strict={strict})"
         )
     
+    # compile torch model
+    model = torch.compile(model)
+    logging.info("Compiled model")
+
+
     # define the optimizer and scheduler, eta_min is the floor value, start and end factor are 1% to 100% of learning rate
     total_steps = cfg.num_epochs*len(train_loader)
     warmup_steps = min(cfg.warmup_steps, max(1, total_steps -1))

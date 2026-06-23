@@ -52,6 +52,8 @@ if __name__ == "__main__":
         f"Model loaded (source={args.weights_source})"
     )
 
+    model = torch.compile(model)
+
     print("\n\n--- Generated Text ---")
     output_greedy = generate_greedy(
         model, tokenizer, device, args.prompt, num_tokens=args.num_tokens
