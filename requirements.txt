@@ -8,3 +8,5 @@ seaborn
 pytest
 datasets
 wandb
+huggingface_hub
+safetensors

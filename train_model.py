@@ -10,15 +10,18 @@ from src.model.config import (
     DEFAULT_DATA_URL,
     DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_DIR,
+    DEFAULT_MODEL_FILENAME,
+    DEFAULT_WEIGHTS_SOURCE,
+    WEIGHTS_SOURCE_CHOICES,
 )
 from src.data.utils import download_text, load_text, load_wikitext
 from src.data.dataset import create_gpt_dataloader
 from src.model.gpt import GPTModel
 from src.data.tokenizer import TikTokenizer
 from src.engine.train import train
-from huggingface_hub import hf_hub_download
-from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
+from src.model.load_weights import load_pretrained_weights  
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
@@ -28,8 +31,12 @@ def parse_args():
     parser.add_argument("--data-url", type=str, default=DEFAULT_DATA_URL)
     parser.add_argument("--dataset-path", type=str, default=DEFAULT_DATASET_PATH)
     parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR)
-    parser.add_argument("--repo-id", type=str, default="triton329/gpt2")
-    parser.add_argument("--filename", type=str, default="GPT-2/artifacts/model.pth")
+    parser.add_argument(
+        "--weights-source",
+        choices=WEIGHTS_SOURCE_CHOICES,
+        default=DEFAULT_WEIGHTS_SOURCE,
+        help="local=artifacts/model.pth, official=openai-community/gpt2",
+    )
     return parser.parse_args()
 
 
@@ -39,7 +46,7 @@ if __name__ == "__main__":
     args = parse_args()
     torch.manual_seed(GPT124M_CONFIG.seed) 
     cfg = GPT124M_CONFIG
-    sample_prompt = args.sample_prompt or "Gisburn had a evil smile, and"
+    sample_prompt = args.sample_prompt or "Hello World"
 
     # loading the data, dataloader and tokenizer
     logging.info("Loading data...")
@@ -75,18 +82,16 @@ if __name__ == "__main__":
     if not torch.cuda.is_available():
         raise RuntimeError("No CUDA device found. CPU training is not supported.")
 
-    # use local model weights or download from huggingface
+    # pretrain from scratch (random init) or continue from local/official weights
     model = GPTModel(cfg).to(device)
-    local_path = os.path.join(args.output_dir, "model.pth")
-    if os.path.exists(local_path):
-        weights_path = local_path
-        logging.info(f"Loading local weights from {weights_path}")
+    if args.weights_source == "scratch":
+        logging.info("Pretraining from scratch (random GPT-2 initialization)")
     else:
-        logging.info(f"Downloading weights from {args.repo_id} ...")
-        weights_path = hf_hub_download(repo_id=args.repo_id, filename=args.filename)
-    state_dict = torch.load(weights_path, map_location=device)
-    model.load_state_dict(state_dict, strict=False)
-    logging.info("Loaded pretrained weights")
+        state_dict, strict = load_pretrained_weights(args.weights_source)
+        model.load_state_dict(state_dict, strict=strict)
+        logging.info(
+            f"Loaded weights (source={args.weights_source}, strict={strict})"
+        )
     
     # define the optimizer and scheduler, eta_min is the floor value, start and end factor are 1% to 100% of learning rate
     total_steps = cfg.num_epochs*len(train_loader)
@@ -121,5 +126,5 @@ if __name__ == "__main__":
     plt.savefig(os.path.join(args.output_dir, "train_validation_curve.png"))
     plt.close()
 
-    torch.save(model.state_dict(), os.path.join(args.output_dir, "model.pth"))
+    torch.save(model.state_dict(), os.path.join(args.output_dir, DEFAULT_MODEL_FILENAME))
     logging.info("Saved model")

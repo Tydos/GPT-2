@@ -6,7 +6,7 @@ from dataclasses import asdict
 
 import numpy as np
 import wandb
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast
 from tqdm import tqdm
 
 from src.engine.generate import generate_greedy
@@ -36,7 +36,6 @@ def train(
 ):
     run = setup_wandb(cfg)
 
-    scaler = GradScaler()
     history = []
     tokens_per_batch = cfg.batch_size * cfg.context_window_size
     global_step = 0
@@ -60,19 +59,16 @@ def train(
                 inputs, targets = inputs.to(device), targets.to(device)
                 optimizer.zero_grad()
 
-                with autocast(dtype=torch.bfloat16):
+                with autocast(device_type="cuda", dtype=torch.bfloat16):
                     loss = calc_cross_entropy_loss(model(inputs), targets)
 
-                scaler.scale(loss).backward()
-                
+                loss.backward()
+
                 grad_norm = None
                 if cfg.grad_clip > 0:
-                    scaler.unscale_(optimizer)
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
 
-                
-                scaler.step(optimizer)
-                scaler.update()
+                optimizer.step()
                 scheduler.step()
                 current_lr = optimizer.param_groups[0]['lr']
 
@@ -112,7 +108,7 @@ def train(
             with torch.no_grad():
                 for inputs, targets in tqdm(val_loader, desc="Validating", leave=False):
                     inputs, targets = inputs.to(device), targets.to(device)
-                    with autocast(dtype=torch.bfloat16):
+                    with autocast(device_type="cuda", dtype=torch.bfloat16):
                         val_loss += calc_cross_entropy_loss(model(inputs), targets).item()
 
             avg_train = train_loss / len(train_loader)
