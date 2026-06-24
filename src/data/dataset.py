@@ -1,3 +1,6 @@
+from typing import Any
+
+
 import torch
 from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
@@ -80,6 +83,30 @@ def create_gpt_dataloader(
         num_workers=num_workers,
         pin_memory=pin_memory,
     )
+
+
+def create_gpt_dataloader2(
+    text: str,
+    tokenizer: BaseTokenizer,
+    max_len: int = 256,
+    stride: int = 64,
+    batch_size: int = 8,
+) -> tuple[DataLoader, DataLoader, DataLoader]:
+    """Create train/val/test DataLoaders from raw text using sliding-window chunking."""
+
+    n = len(text)
+    train_text = text[: int(0.7 * n)]  # 70% of the text for training
+    val_text = text[int(0.7 * n) : int(0.9 * n)]  # 20% of the text for validation
+    test_text = text[int(0.9 * n) :]  # 10% of the text for testing
+
+    train_ds = GPTDataset(train_text, tokenizer, max_len, stride)
+    val_ds = GPTDataset(val_text, tokenizer, max_len, stride)
+    test_ds = GPTDataset(test_text, tokenizer, max_len, stride)
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
+    return train_loader, val_loader, test_loader
 
 
 def create_sms_spam_dataloader(

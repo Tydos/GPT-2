@@ -5,6 +5,7 @@ from datasets import load_dataset
 
 
 def download_text(url: str, file_path: str, force: bool = True) -> None:
+    """Download text from a URL to a file in the directory"""
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     if force or not os.path.exists(file_path):
         response = requests.get(url, timeout=30)
@@ -14,6 +15,7 @@ def download_text(url: str, file_path: str, force: bool = True) -> None:
 
 
 def load_text(file_path: str) -> str:
+    """Load text from a file"""
     with open(file_path, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
 
