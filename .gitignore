@@ -8,3 +8,5 @@ __pycache__/
 *.pth
 artifacts/model.pth
 .env
+wandb/
+.cursor/
