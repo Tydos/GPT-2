@@ -99,3 +99,21 @@ def load_pretrained_weights(
         head_dim=cfg.head_dim,
     )
     return state, True
+
+
+def load_model(
+    model: torch.nn.Module,
+    source: Literal["scratch", "local", "official"],
+) -> torch.nn.Module:
+    """Load weights, compile, and return the model."""
+    import logging
+    if source == "scratch":
+        logging.info("Training from scratch (random initialization)")
+    else:
+        state_dict, strict = load_pretrained_weights(source)
+        model.load_state_dict(state_dict, strict=strict)
+        logging.info(f"Loaded weights (source={source}, strict={strict})")
+    if torch.cuda.is_available():
+        model = torch.compile(model)
+        logging.info("Compiled model")
+    return model

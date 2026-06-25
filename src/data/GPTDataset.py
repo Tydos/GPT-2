@@ -49,7 +49,7 @@ def raw_text_dataloader(
     return train_loader, val_loader, test_loader
 
 
-def dataset_text_dataloader(
+def create_dataloaders(
     train_text: str,
     val_text: str,
     test_text: str,
@@ -57,14 +57,17 @@ def dataset_text_dataloader(
     max_len: int,
     stride: int,
     batch_size: int,
+    num_workers: int = 0,
+    pin_memory: bool = False,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
-    """Importing data from HuggingFace which already have the train/test/val splits and returns dataloaders"""
-
+    """Build train/val/test DataLoaders from pre-split text."""
     train_ds = GPTDataset(train_text, tokenizer, max_len, stride)
-    val_ds = GPTDataset(val_text, tokenizer, max_len, stride)
-    test_ds = GPTDataset(test_text, tokenizer, max_len, stride)
+    val_ds   = GPTDataset(val_text,   tokenizer, max_len, stride)
+    test_ds  = GPTDataset(test_text,  tokenizer, max_len, stride)
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
-    return train_loader, val_loader, test_loader
+    kwargs = dict(num_workers=num_workers, pin_memory=pin_memory)
+    return (
+        DataLoader(train_ds, batch_size=batch_size, shuffle=True,  **kwargs),
+        DataLoader(val_ds,   batch_size=batch_size, shuffle=False, **kwargs),
+        DataLoader(test_ds,  batch_size=batch_size, shuffle=False, **kwargs),
+    )

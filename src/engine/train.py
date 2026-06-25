@@ -1,8 +1,12 @@
+import os
 import torch
 import torch.nn.functional as F
 import logging
 import time
 from dataclasses import asdict
+
+import matplotlib.pyplot as plt
+from torch.optim.lr_scheduler import LinearLR, CosineAnnealingLR, SequentialLR
 
 import numpy as np
 import wandb
@@ -30,8 +34,33 @@ def setup_wandb(cfg):
     )
     return run
 
+def build_optimizer_and_scheduler(model, cfg, train_loader):
+    total_steps = cfg.num_epochs * len(train_loader)
+    warmup_steps = min(cfg.warmup_steps, max(1, total_steps - 1))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
+    warmup_scheduler = LinearLR(optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_steps)
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=total_steps - warmup_steps, eta_min=cfg.lr * 0.01)
+    scheduler = SequentialLR(optimizer, [warmup_scheduler, cosine_scheduler], milestones=[warmup_steps])
+    logging.info(f"  Model: {sum(p.numel() for p in model.parameters()):,} params")
+    return optimizer, scheduler
+
+
+def plot_history(history: np.ndarray, output_dir: str) -> None:
+    """Save train/val/test loss curves to output_dir."""
+    os.makedirs(output_dir, exist_ok=True)
+    plt.plot(history[:, 0], label="train")
+    plt.plot(history[:, 1], label="val")
+    if history.shape[1] > 2:
+        plt.plot(history[:, 2], label="test")
+    plt.legend()
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.savefig(os.path.join(output_dir, "loss_curve.png"))
+    plt.close()
+
+
 def train(
-    model, optimizer, train_loader, val_loader, device, cfg, sample_prompt, tokenizer, 
+    model, optimizer, train_loader, val_loader, test_loader, device, cfg, sample_prompt, tokenizer,
     scheduler,
 ):
     run = setup_wandb(cfg)
@@ -39,6 +68,8 @@ def train(
     history = []
     tokens_per_batch = cfg.batch_size * cfg.context_window_size
     global_step = 0
+    device_type = device.type
+    amp_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
 
     try:
         for epoch in range(1, cfg.num_epochs + 1):
@@ -59,7 +90,7 @@ def train(
                 inputs, targets = inputs.to(device), targets.to(device)
                 optimizer.zero_grad()
 
-                with autocast(device_type="cuda", dtype=torch.bfloat16):
+                with autocast(device_type=device_type, dtype=amp_dtype):
                     loss = calc_cross_entropy_loss(model(inputs), targets)
 
                 loss.backward()
@@ -108,7 +139,7 @@ def train(
             with torch.no_grad():
                 for inputs, targets in tqdm(val_loader, desc="Validating", leave=False):
                     inputs, targets = inputs.to(device), targets.to(device)
-                    with autocast(device_type="cuda", dtype=torch.bfloat16):
+                    with autocast(device_type=device_type, dtype=amp_dtype):
                         val_loss += calc_cross_entropy_loss(model(inputs), targets).item()
 
             avg_train = train_loss / len(train_loader)
@@ -136,7 +167,15 @@ def train(
                 step=global_step,
             )
             
-            history.append((avg_train, avg_val))
+            test_loss = 0.0
+            with torch.no_grad():
+                for inputs, targets in tqdm(test_loader, desc="Testing", leave=False):
+                    inputs, targets = inputs.to(device), targets.to(device)
+                    with autocast(device_type=device_type, dtype=amp_dtype):
+                        test_loss += calc_cross_entropy_loss(model(inputs), targets).item()
+            avg_test = test_loss / len(test_loader)
+
+            history.append((avg_train, avg_val, avg_test))
             logging.info(f"  Sample: {sample}\n")
 
     finally:

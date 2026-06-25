@@ -20,37 +20,43 @@ def load_text(file_path: str) -> str:
         return f.read()
 
 
-def load_wikitext() -> tuple[str, str]:
-    dataset = load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1")
+def load_hf_text(
+    name: str,
+    config: str | None = None,
+    text_column: str = "text",
+    train_split: str = "train",
+    val_split: str = "validation",
+    test_split: str = "test",
+) -> tuple[str, str, str]:
+    """Load (train_text, val_text, test_text) from a HuggingFace text dataset.
 
-    train_text = "\n".join(dataset["train"]["text"])
-    val_text = "\n".join(dataset["validation"]["text"])
+    Falls back to an 80/10/10 split of the train split when val/test are absent.
+    """
+    dataset = load_dataset(name, config)
 
-    train_text = clean_wikitext(train_text)
-    val_text = clean_wikitext(val_text)
+    train_text = "\n".join(dataset[train_split][text_column])
 
-    return train_text, val_text
+    if val_split in dataset and test_split in dataset:
+        val_text = "\n".join(dataset[val_split][text_column])
+        test_text = "\n".join(dataset[test_split][text_column])
+    else:
+        n = len(train_text)
+        train_text, val_text, test_text = train_text[:int(0.8*n)], train_text[int(0.8*n):int(0.9*n)], train_text[int(0.9*n):]
 
-def clean_wikitext(text: str) -> str:
-    """Clean WikiText-103 raw text artifacts."""
-    
-    # Remove "@-@" (hyphenation markers in WikiText)
-    text = text.replace("@-@", "-")
-    
-    # Remove other @ markers if present (rare in WikiText but possible)
-    text = re.sub(r'@\S+', '', text)
-    
-    # Remove Wikipedia markup artifacts
-    text = re.sub(r'=\s*[^=]+?\s*=', '', text)  # Section headers like "= Title ="
-    
-    # Remove empty parentheses and brackets
-    text = re.sub(r'\(\s*\)', '', text)
-    text = re.sub(r'\[\s*\]', '', text)
-    
-    # Normalize whitespace (collapse multiple spaces/newlines)
-    text = re.sub(r'\s+', ' ', text)
-    
-    # Remove lines that are just whitespace or empty
-    lines = [line.strip() for line in text.split('\n') if line.strip()]
-    
-    return '\n'.join(lines)
+    return train_text, val_text, test_text
+
+
+def load_wikitext() -> tuple[str, str, str]:
+    """Load and clean WikiText-103 train/val/test splits."""
+    train_text, val_text, test_text = load_hf_text("Salesforce/wikitext", "wikitext-103-raw-v1")
+
+    def clean(text: str) -> str:
+        text = text.replace("@-@", "-")
+        text = re.sub(r'@\S+', '', text)
+        text = re.sub(r'=\s*[^=]+?\s*=', '', text)
+        text = re.sub(r'\(\s*\)', '', text)
+        text = re.sub(r'\[\s*\]', '', text)
+        text = re.sub(r'\s+', ' ', text)
+        return '\n'.join(line.strip() for line in text.split('\n') if line.strip())
+
+    return clean(train_text), clean(val_text), clean(test_text)

@@ -61,17 +61,17 @@ GPT124M_CONFIG = GPTConfig(
 )
 
 NANO_GPT_CONFIG = GPTConfig(
-    vocab_size=5962,  # unique words in the dataset
+    vocab_size=5962,  
     context_window_size=256,
     context_length=256,
     batch_size=32,
     stride=128,
-    embed_dim=64,
-    head_dim=32,
+    embed_dim=128,
+    head_dim=64,
     num_heads=2,
-    drop_rate=0.0,
-    n_layer=2,
-    num_epochs=50,
+    drop_rate=0.1,
+    n_layer=4,
+    num_epochs=25,
     num_workers=0,
     lr=3e-4,
     temperature=0.8,

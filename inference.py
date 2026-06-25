@@ -1,16 +1,16 @@
 import argparse
 import logging
-import os
 
 import torch
 
 from src.model.config import (
     GPT124M_CONFIG,
+    NANO_GPT_CONFIG,
     DEFAULT_WEIGHTS_SOURCE,
     WEIGHTS_SOURCE_CHOICES,
 )
 from src.model.gpt import GPTModel
-from src.model.load_weights import load_pretrained_weights
+from src.model.load_weights import load_model
 from src.data.tokenizer import TikTokenizer
 from src.engine.generate import (
     generate_greedy,
@@ -30,6 +30,12 @@ def parse_args():
         default=DEFAULT_WEIGHTS_SOURCE,
         help="local=artifacts/model.pth, official=openai-community/gpt2",
     )
+    parser.add_argument(
+    "--config",
+    choices=("gpt124m", "nano"),
+    default="nano",
+    help="gpt124m=124M param GPT-2, nano=tiny model for CPU",
+    )
     parser.add_argument("--prompt", type=str, default="Once upon a time in India")
     parser.add_argument("--num-tokens", type=int, default=50)
     return parser.parse_args()
@@ -38,21 +44,11 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cfg = GPT124M_CONFIG
+    cfg = NANO_GPT_CONFIG if args.config == "nano" else GPT124M_CONFIG
     tokenizer = TikTokenizer("gpt2")
 
-    model = GPTModel(cfg).to(device)
-    if args.weights_source == "scratch":
-        logging.warning("Using randomly initialized weights (scratch); output will be gibberish")
-    else:
-        state_dict, strict = load_pretrained_weights(args.weights_source)
-        model.load_state_dict(state_dict, strict=strict)
+    model = load_model(GPTModel(cfg).to(device), args.weights_source)
     model.eval()
-    logging.info(
-        f"Model loaded (source={args.weights_source})"
-    )
-
-    model = torch.compile(model)
 
     print("\n\n--- Generated Text ---")
     output_greedy = generate_greedy(

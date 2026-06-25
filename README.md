@@ -14,54 +14,45 @@ pip install -r requirements.txt
 
 ## Inference
 
-Generates text with greedy, temperature, top-k, and top-p sampling.
+Runs greedy, temperature, top-k, and top-p sampling and prints all four outputs.
 
 ```bash
-python inference.py --prompt "Once upon a time" --num-tokens 50
-```
+# Official GPT-2 weights (downloaded automatically on first run)
+python inference.py --weights-source official --config gpt124m --prompt "Once upon a time" --num-tokens 50
 
-Options:
+# Locally trained model
+python inference.py --weights-source local --config gpt124m --prompt "Once upon a time"
+```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--weights-source` | `official` | `official` (downloads `openai-community/gpt2`), `local` (`artifacts/model.pth`), or `scratch` (random init — outputs gibberish) |
+| `--weights-source` | `official` | `official` (HF `openai-community/gpt2`), `local` (`artifacts/model.pth`), `scratch` |
+| `--config` | `nano` | `gpt124m` = 124M GPT-2, `nano` = tiny CPU model |
 | `--prompt` | `"Once upon a time in India"` | Prompt text |
-| `--num-tokens` | `50` | Number of tokens to generate |
-
-Official GPT-2 weights are downloaded automatically from
-[`openai-community/gpt2`](https://huggingface.co/openai-community/gpt2) on first use.
+| `--num-tokens` | `50` | Tokens to generate |
 
 ## Train
 
-Training runs on WikiText-103 and the model was pre-trained on Nvidia A100 with each epoch taking ~25 minutes. Metrics are logged to [Weights & Biases](https://wandb.ai).
-
-
-**Pretrain from scratch** (random GPT-2 initialization):
+Metrics are logged to [Weights & Biases](https://wandb.ai). Pre-training on WikiText-103 on an A100 takes ~25 min/epoch.
 
 ```bash
-python train_model.py --weights-source scratch
+# Train from scratch on a local text file
+python train_model.py --weights-source scratch --dataset-file artifacts/mydata.txt
+
+# Fine-tune from official GPT-2 weights using a HuggingFace dataset
+python train_model.py --weights-source official --hf-dataset Salesforce/wikitext
 ```
-
-**Continue training / fine-tune from official GPT-2 weights:**
-
-```bash
-python train_model.py --weights-source official
-```
-
-Options:
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--weights-source` | `official` | `scratch`, `local`, or `official` |
-| `--sample-prompt` | built-in prompt | Prompt sampled each epoch  |
-| `--output-dir` | `artifacts/` | Where the trained model and loss curve are saved |
-| `--data-url` / `--dataset-path` | see `config.py` | Dataset source overrides |
+| `--dataset-file PATH` | — | Local `.txt` file (80/10/10 split) — mutually exclusive with `--hf-dataset` |
+| `--hf-dataset REPO_ID` | — | HuggingFace dataset repo (e.g. `Salesforce/wikitext`) |
+| `--tokenizer` | `tiktoken` | `tiktoken` (GPT-2 BPE) or `simple` (word-level) |
+| `--output-dir` | `artifacts/` | Where `model.pth` and loss curve are saved |
+| `--sample-prompt` | `"Hello World"` | Prompt sampled after each epoch |
 
-Outputs are written to `artifacts/`: the trained weights (`model.pth`) and the
-train/validation loss curve (`train_validation_curve.png`).
-
-Hyperparameters (model size, context length, batch size, LR, warmup, etc.) live
-in `GPT124M_CONFIG` in `src/model/config.py`.
+Hyperparameters live in `src/model/config.py`.
 
 ## Performance improvements
 
