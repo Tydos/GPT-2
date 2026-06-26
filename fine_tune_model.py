@@ -7,11 +7,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from src.model.config import DEFAULT_OUTPUT_DIR, GPT124M_CONFIG
+from src.model.config import DEFAULT_OUTPUT_DIR, GPT124M_MODEL, GPT124M_TRAIN
 from src.model.gpt import GPTModel
 from src.model.load_weights import load_pretrained_weights
-from src.data.dataset import create_sms_spam_dataloader
-from src.data.tokenizer import TikTokenizer
+from src.data.finetune import create_sms_spam_dataloader
+from src.data.tokenizer import BPETokenizer
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -25,7 +25,7 @@ class SpamClassifier(nn.Module):
         self.gpt = gpt
         for param in self.gpt.parameters():
             param.requires_grad = False
-        self.classifier = nn.Linear(GPT124M_CONFIG.embed_dim, NUM_CLASSES)
+        self.classifier = nn.Linear(GPT124M_MODEL.embed_dim, NUM_CLASSES)
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         with torch.no_grad():
@@ -42,18 +42,18 @@ class SpamClassifier(nn.Module):
 
 def load_model() -> SpamClassifier:
     """Load GPT-2 with frozen weights and a trainable 2-class head."""
-    gpt = GPTModel(GPT124M_CONFIG)
+    gpt = GPTModel(GPT124M_MODEL)
     state_dict, strict = load_pretrained_weights("official")
     gpt.load_state_dict(state_dict, strict=strict)
     return SpamClassifier(gpt)
 
 
 def load_data():
-    tokenizer = TikTokenizer("gpt2")
+    tokenizer = BPETokenizer("gpt2")
     return create_sms_spam_dataloader(
         tokenizer,
-        batch_size=GPT124M_CONFIG.batch_size,
-        num_workers=GPT124M_CONFIG.num_workers,
+        batch_size=GPT124M_TRAIN.batch_size,
+        num_workers=GPT124M_TRAIN.num_workers,
         pin_memory=torch.cuda.is_available(),
     )
 
@@ -78,10 +78,10 @@ def run_epoch(model, loader, device, optimizer=None):
             if training:
                 optimizer.zero_grad()
                 loss.backward()
-                if GPT124M_CONFIG.grad_clip > 0:
+                if GPT124M_TRAIN.grad_clip > 0:
                     torch.nn.utils.clip_grad_norm_(
                         (p for p in model.parameters() if p.requires_grad),
-                        GPT124M_CONFIG.grad_clip,
+                        GPT124M_TRAIN.grad_clip,
                     )
                 optimizer.step()
 
@@ -100,8 +100,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    cfg = GPT124M_CONFIG
-    torch.manual_seed(cfg.seed)
+    train_cfg = GPT124M_TRAIN
+    torch.manual_seed(train_cfg.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info("Loading data...")
@@ -119,15 +119,15 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.AdamW(
         (p for p in model.parameters() if p.requires_grad),
-        lr=cfg.lr,
+        lr=train_cfg.lr,
     )
 
-    logging.info(f"Starting fine-tuning for {cfg.num_epochs} epochs...\n")
-    for epoch in range(1, cfg.num_epochs + 1):
+    logging.info(f"Starting fine-tuning for {train_cfg.num_epochs} epochs...\n")
+    for epoch in range(1, train_cfg.num_epochs + 1):
         train_loss, train_acc = run_epoch(model, train_loader, device, optimizer)
         val_loss, val_acc = run_epoch(model, val_loader, device)
         logging.info(
-            f"Epoch {epoch:2d}/{cfg.num_epochs} | "
+            f"Epoch {epoch:2d}/{train_cfg.num_epochs} | "
             f"train loss={train_loss:.4f} acc={train_acc:.3f} | "
             f"val loss={val_loss:.4f} acc={val_acc:.3f}"
         )

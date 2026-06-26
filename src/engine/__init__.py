@@ -1,2 +1,2 @@
 from src.engine.train import train
-from src.engine.generate import generate_greedy
+from src.engine.generate import generate

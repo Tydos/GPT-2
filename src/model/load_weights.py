@@ -7,7 +7,7 @@ from safetensors.torch import load_file as load_safetensors
 
 from src.model.config import (
     DEFAULT_LOCAL_WEIGHTS_PATH,
-    GPT124M_CONFIG,
+    GPT124M_MODEL,
     OFFICIAL_GPT2_PYTORCH,
     OFFICIAL_GPT2_REPO,
     OFFICIAL_GPT2_SAFETENSORS,
@@ -41,7 +41,6 @@ def convert_hf_to_gptmodel(
     hf_state: dict[str, torch.Tensor],
     n_layer: int = 12,
     num_heads: int = 12,
-    head_dim: int = 64,
 ) -> dict[str, torch.Tensor]:
     """Convert Hugging Face checkpoint to GPTModel state dictionary."""
     hf_state = _normalize_hf_state(hf_state)
@@ -91,12 +90,11 @@ def load_pretrained_weights(
     except Exception:
         hf_state = _download_hf_state(OFFICIAL_GPT2_REPO, OFFICIAL_GPT2_PYTORCH)
 
-    cfg = GPT124M_CONFIG
+    cfg = GPT124M_MODEL
     state = convert_hf_to_gptmodel(
         hf_state,
         n_layer=cfg.n_layer,
         num_heads=cfg.num_heads,
-        head_dim=cfg.head_dim,
     )
     return state, True
 

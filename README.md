@@ -36,15 +36,16 @@ python inference.py --weights-source local --config gpt124m --prompt "Once upon 
 Metrics are logged to [Weights & Biases](https://wandb.ai). Pre-training on WikiText-103 on an A100 takes ~25 min/epoch.
 
 ```bash
-# Train from scratch on a local text file
-python train_model.py --weights-source scratch --dataset-file artifacts/mydata.txt
+# Train from scratch on a local text file (nano model, CPU)
+python train_model.py --weights-source scratch --config nano --dataset-file artifacts/mydata.txt
 
-# Fine-tune from official GPT-2 weights using a HuggingFace dataset
-python train_model.py --weights-source official --hf-dataset Salesforce/wikitext
+# Fine-tune from official GPT-2 weights on a HuggingFace dataset (GPU)
+python train_model.py --weights-source official --config gpt124m --hf-dataset Salesforce/wikitext
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--config` | `nano` | `gpt124m` = 124M GPT-2 (GPU), `nano` = tiny model (CPU) |
 | `--weights-source` | `official` | `scratch`, `local`, or `official` |
 | `--dataset-file PATH` | — | Local `.txt` file (80/10/10 split) — mutually exclusive with `--hf-dataset` |
 | `--hf-dataset REPO_ID` | — | HuggingFace dataset repo (e.g. `Salesforce/wikitext`) |
@@ -52,9 +53,17 @@ python train_model.py --weights-source official --hf-dataset Salesforce/wikitext
 | `--output-dir` | `artifacts/` | Where `model.pth` and loss curve are saved |
 | `--sample-prompt` | `"Hello World"` | Prompt sampled after each epoch |
 
-Hyperparameters live in `src/model/config.py`.
+Model and training hyperparameters live in `src/model/config.py` as `ModelConfig` and `TrainConfig`.
 
-## Performance improvements
+## Fine-tune for classification
+
+Fine-tunes a frozen GPT-2 backbone with a 2-class linear head on the SMS spam dataset.
+
+```bash
+python fine_tune_model.py
+```
+
+## Performance
 
 Training throughput on **NVIDIA A100** (WikiText-103, GPT-2 124M, batch size 32,
 context length 1024, bf16 autocast, 5 epochs each).
@@ -65,14 +74,20 @@ context length 1024, bf16 autocast, 5 epochs each).
 | Optimised MHA with SDPA (`MultiHeadAttentionSDPA`) | ~90k tok/s |
 | SDPA + `torch.compile` | TBD |
 
-
 ## Project layout
 
 ```
 src/
-  model/      # config, attention, transformer block, layernorm, GPT model, weight loading
-  data/       # tokenizer (tiktoken), sliding-window dataset, dataset utils
-  engine/     # training loop and text-generation strategies
-train_model.py  # training entrypoint
-inference.py    # generation entrypoint
+  model/      # ModelConfig, TrainConfig, attention, transformer, GPT model, weight loading
+  data/
+    pretrain.py   # GPTDataset, sliding-window dataloaders
+    finetune.py   # SMSSpamDataset, classification dataloader
+    tokenizer.py  # BPETokenizer (tiktoken), SimpleTokenizer
+    utils.py      # text loading and HuggingFace helpers
+  engine/
+    train.py      # training loop, optimizer, LR scheduler, W&B logging
+    generate.py   # text generation (greedy, temperature, top-k, top-p)
+train_model.py    # pre-training entrypoint
+inference.py      # generation entrypoint
+fine_tune_model.py  # classification fine-tuning entrypoint
 ```

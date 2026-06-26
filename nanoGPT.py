@@ -1,33 +1,31 @@
 import torch
-from src.data.dataset import create_gpt_dataloader2
-from src.data.tokenizer import build_vocab, save_vocab, SimpleTokenizer
-from src.model.config import NANO_GPT_CONFIG
+from dataclasses import replace
+from src.data.pretrain import create_dataloaders_from_text
+from src.data.tokenizer import SimpleTokenizer
+from src.model.config import NANO_MODEL, NANO_TRAIN
 from src.data.utils import load_text
 from src.model.gpt import GPTModel
 import torch.nn.functional as F
-from src.engine.generate import generate_temperature
+from src.engine.generate import generate
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     raw_text = load_text(file_path="artifacts/harrypotter.txt")
-    vocab = build_vocab(raw_text)
-    save_vocab(vocab, file_path="artifacts")
-    tokenizer = SimpleTokenizer(vocab)
-    train_loader, val_loader, test_loader = create_gpt_dataloader2(
-        raw_text,
-        tokenizer,
-        max_len=256,
-        stride=64,
-        batch_size=8,
+    tokenizer = SimpleTokenizer.from_text(raw_text)
+    tokenizer.save("artifacts")
+    train_loader, val_loader, test_loader = create_dataloaders_from_text(
+        raw_text, tokenizer, seq_len=256, stride=64, batch_size=8,
+        split=(0.7, 0.2, 0.1),
     )
-    model = GPTModel(NANO_GPT_CONFIG).to(device)
-    optimizer = torch.optim.AdamW(params=model.parameters(), lr=NANO_GPT_CONFIG.lr)
+    nano_model_cfg = replace(NANO_MODEL, vocab_size=len(tokenizer.str_to_int))
+    model = GPTModel(nano_model_cfg).to(device)
+    optimizer = torch.optim.AdamW(params=model.parameters(), lr=NANO_TRAIN.lr)
 
     print("num parameters: ", sum(p.numel() for p in model.parameters()))
     history = {"train": [], "val": [], "test": []}
-    for epoch in range(NANO_GPT_CONFIG.num_epochs):
-        print(f"Epoch {epoch + 1} of {NANO_GPT_CONFIG.num_epochs}")
+    for epoch in range(NANO_TRAIN.num_epochs):
+        print(f"Epoch {epoch + 1} of {NANO_TRAIN.num_epochs}")
         model.train()
         train_loss = 0.0
         for batch in train_loader:
@@ -67,14 +65,9 @@ if __name__ == "__main__":
         history["test"].append(test_loss / len(test_loader))
 
         print(f"Test loss: {test_loss / len(test_loader)}")
-        gen = generate_temperature(
-            model=model,
-            tokenizer=tokenizer,
-            device=device,
-            prompt="The",
-            num_tokens=20,
-            temperature=0.8,
-        )
+        gen = generate(model, tokenizer, device, "The", num_tokens=20,
+                       strategy="temperature", temperature=0.8,
+                       context_length=nano_model_cfg.context_length)
         print(gen)
 
     torch.save(model.state_dict(), "artifacts/nano.pth")

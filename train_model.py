@@ -5,17 +5,19 @@ from dataclasses import replace
 import torch
 
 from src.model.config import (
-    GPT124M_CONFIG, # runs on GPU
-    NANO_GPT_CONFIG, # runs on CPU
+    GPT124M_MODEL,
+    GPT124M_TRAIN,
+    NANO_MODEL,
+    NANO_TRAIN,
     DEFAULT_OUTPUT_DIR,
     DEFAULT_MODEL_FILENAME,
     DEFAULT_WEIGHTS_SOURCE,
     WEIGHTS_SOURCE_CHOICES,
 )
 from src.data.utils import load_hf_text, load_text
-from src.data.GPTDataset import create_dataloaders
+from src.data.pretrain import create_dataloaders_from_splits
 from src.model.gpt import GPTModel
-from src.data.tokenizer import TikTokenizer, SimpleTokenizer, build_vocab
+from src.data.tokenizer import BPETokenizer, SimpleTokenizer
 from src.model.load_weights import load_model
 from src.engine.train import train, build_optimizer_and_scheduler, plot_history
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -48,6 +50,12 @@ def parse_args():
     )
     parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument(
+        "--config",
+        choices=("gpt124m", "nano"),
+        default="nano",
+        help="gpt124m=124M param GPT-2 (GPU), nano=tiny model (CPU)",
+    )
+    parser.add_argument(
         "--weights-source",
         choices=WEIGHTS_SOURCE_CHOICES,
         default=DEFAULT_WEIGHTS_SOURCE,
@@ -58,10 +66,13 @@ def parse_args():
 
 if __name__ == "__main__":
 
-    # parse the arguments and set the seed
     args = parse_args()
-    cfg = NANO_GPT_CONFIG
-    torch.manual_seed(NANO_GPT_CONFIG.seed) 
+    if args.config == "gpt124m":
+        model_cfg, train_cfg = GPT124M_MODEL, GPT124M_TRAIN
+    else:
+        model_cfg, train_cfg = NANO_MODEL, NANO_TRAIN
+
+    torch.manual_seed(train_cfg.seed)
     sample_prompt = args.sample_prompt or "Hello World"
 
     # loading the data, dataloader and tokenizer
@@ -74,38 +85,38 @@ if __name__ == "__main__":
         test_text  = raw[int(0.9 * n):]
     elif args.hf_dataset:
         logging.info(f"Loading HuggingFace dataset: {args.hf_dataset}")
-        train_text, val_text, test_text = load_hf_text(args.hf_dataset) 
+        train_text, val_text, test_text = load_hf_text(args.hf_dataset)
+        raw = train_text + val_text + test_text
     else:
         raise ValueError("Provide either --dataset-file or --hf-dataset")
-    
+
     if args.tokenizer == "simple":
-        vocab = build_vocab(raw)
-        tokenizer = SimpleTokenizer(vocab)  
-        cfg = replace(cfg, vocab_size = len(vocab))
+        tokenizer = SimpleTokenizer.from_text(raw)
+        model_cfg = replace(model_cfg, vocab_size=len(tokenizer.str_to_int))
     else:
-        tokenizer = TikTokenizer("gpt2")
-        cfg = replace(cfg, vocab_size=tokenizer.tokenizer.n_vocab) # 50257
+        tokenizer = BPETokenizer("gpt2")
+        model_cfg = replace(model_cfg, vocab_size=tokenizer.tokenizer.n_vocab)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logging.info(f"Using device: {device}")
-    train_loader, val_loader, test_loader = create_dataloaders(
+    train_loader, val_loader, test_loader = create_dataloaders_from_splits(
         train_text, val_text, test_text,
-        tokenizer=tokenizer,
-        max_len=cfg.context_window_size,
-        stride=cfg.stride,
-        batch_size=cfg.batch_size,
-        num_workers=cfg.num_workers,
+        tokenizer,
+        model_cfg.context_length,
+        train_cfg.stride,
+        train_cfg.batch_size,
+        num_workers=train_cfg.num_workers,
         pin_memory=device.type == "cuda",
     )
     logging.info(f"  Train batches: {len(train_loader)} | Val batches: {len(val_loader)} | Test batches: {len(test_loader)}")
 
-    model = load_model(GPTModel(cfg).to(device), args.weights_source)
-    optimizer, scheduler = build_optimizer_and_scheduler(model, cfg, train_loader)
+    model = load_model(GPTModel(model_cfg).to(device), args.weights_source)
+    optimizer, scheduler = build_optimizer_and_scheduler(model, train_cfg, train_loader)
 
-    logging.info(f"Starting training for {cfg.num_epochs} epochs...\n")
+    logging.info(f"Starting training for {train_cfg.num_epochs} epochs...\n")
     history = train(
         model, optimizer, train_loader, val_loader, test_loader,
-        device, cfg, sample_prompt, tokenizer, scheduler,
+        device, model_cfg, train_cfg, sample_prompt, tokenizer, scheduler,
     )
     plot_history(history, args.output_dir)
 

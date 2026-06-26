@@ -2,13 +2,13 @@ import math
 
 import torch
 import torch.nn as nn
-from src.model.config import GPTConfig
+from src.model.config import ModelConfig
 from src.model.transformer import Transformer
 from src.model.norm import LayerNorm
 
 
 class GPTModel(nn.Module):
-    def __init__(self, config: GPTConfig) -> None:
+    def __init__(self, config: ModelConfig) -> None:
         super().__init__()
         self.config = config
         self.token_embedding = nn.Embedding(config.vocab_size, config.embed_dim)

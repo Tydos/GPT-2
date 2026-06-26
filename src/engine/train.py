@@ -13,7 +13,7 @@ import wandb
 from torch.amp import autocast
 from tqdm import tqdm
 
-from src.engine.generate import generate_greedy
+from src.engine.generate import generate
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -26,20 +26,20 @@ def calc_cross_entropy_loss(logits, targets):
 def calc_perplexity(loss: float) -> float:
     return float(np.exp(loss))
 
-def setup_wandb(cfg):
+def setup_wandb(model_cfg, train_cfg):
     run = wandb.init(
         entity="pjawale-student",
         project="gpt2-pytorch",
-        config=asdict(cfg),
+        config={**asdict(model_cfg), **asdict(train_cfg)},
     )
     return run
 
-def build_optimizer_and_scheduler(model, cfg, train_loader):
-    total_steps = cfg.num_epochs * len(train_loader)
-    warmup_steps = min(cfg.warmup_steps, max(1, total_steps - 1))
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr)
+def build_optimizer_and_scheduler(model, train_cfg, train_loader):
+    total_steps = train_cfg.num_epochs * len(train_loader)
+    warmup_steps = min(train_cfg.warmup_steps, max(1, total_steps - 1))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=train_cfg.lr)
     warmup_scheduler = LinearLR(optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_steps)
-    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=total_steps - warmup_steps, eta_min=cfg.lr * 0.01)
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=total_steps - warmup_steps, eta_min=train_cfg.lr * 0.01)
     scheduler = SequentialLR(optimizer, [warmup_scheduler, cosine_scheduler], milestones=[warmup_steps])
     logging.info(f"  Model: {sum(p.numel() for p in model.parameters()):,} params")
     return optimizer, scheduler
@@ -60,19 +60,19 @@ def plot_history(history: np.ndarray, output_dir: str) -> None:
 
 
 def train(
-    model, optimizer, train_loader, val_loader, test_loader, device, cfg, sample_prompt, tokenizer,
-    scheduler,
+    model, optimizer, train_loader, val_loader, test_loader, device, model_cfg, train_cfg,
+    sample_prompt, tokenizer, scheduler,
 ):
-    run = setup_wandb(cfg)
+    run = setup_wandb(model_cfg, train_cfg)
 
     history = []
-    tokens_per_batch = cfg.batch_size * cfg.context_window_size
+    tokens_per_batch = train_cfg.batch_size * model_cfg.context_length
     global_step = 0
     device_type = device.type
     amp_dtype = torch.bfloat16 if device_type == "cuda" else torch.float32
 
     try:
-        for epoch in range(1, cfg.num_epochs + 1):
+        for epoch in range(1, train_cfg.num_epochs + 1):
             model.train()
             train_loss = 0.0
             epoch_start = time.perf_counter()
@@ -81,7 +81,7 @@ def train(
 
             pbar = tqdm(
                 train_loader,
-                desc=f"Epoch {epoch}/{cfg.num_epochs}",
+                desc=f"Epoch {epoch}/{train_cfg.num_epochs}",
                 unit="batch",
                 leave=True,
             )
@@ -96,8 +96,8 @@ def train(
                 loss.backward()
 
                 grad_norm = None
-                if cfg.grad_clip > 0:
-                    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
+                if train_cfg.grad_clip > 0:
+                    grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
 
                 optimizer.step()
                 scheduler.step()
@@ -146,10 +146,11 @@ def train(
             avg_val = val_loss / len(val_loader)
             avg_train_perplexity = calc_perplexity(avg_train)
             avg_val_perplexity = calc_perplexity(avg_val)
-            sample = generate_greedy(model, tokenizer, device, sample_prompt)
+            sample = generate(model, tokenizer, device, sample_prompt,
+                              context_length=model_cfg.context_length)
 
             logging.info(
-                f"Epoch {epoch:2d}/{cfg.num_epochs} | train={avg_train:.4f} | val={avg_val:.4f} | "
+                f"Epoch {epoch:2d}/{train_cfg.num_epochs} | train={avg_train:.4f} | val={avg_val:.4f} | "
                 f"train_perplexity={avg_train_perplexity:.4f} | val_perplexity={avg_val_perplexity:.4f} | "
                 f"{epoch_tok_s:,.0f} tok/s (epoch avg)"
             )

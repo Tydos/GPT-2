@@ -4,20 +4,15 @@ import logging
 import torch
 
 from src.model.config import (
-    GPT124M_CONFIG,
-    NANO_GPT_CONFIG,
+    GPT124M_MODEL,
+    NANO_MODEL,
     DEFAULT_WEIGHTS_SOURCE,
     WEIGHTS_SOURCE_CHOICES,
 )
 from src.model.gpt import GPTModel
 from src.model.load_weights import load_model
-from src.data.tokenizer import TikTokenizer
-from src.engine.generate import (
-    generate_greedy,
-    generate_temperature,
-    generate_top_k,
-    generate_top_p,
-)
+from src.data.tokenizer import BPETokenizer
+from src.engine.generate import generate
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
@@ -44,38 +39,18 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cfg = NANO_GPT_CONFIG if args.config == "nano" else GPT124M_CONFIG
-    tokenizer = TikTokenizer("gpt2")
+    model_cfg = NANO_MODEL if args.config == "nano" else GPT124M_MODEL
+    tokenizer = BPETokenizer("gpt2")
 
-    model = load_model(GPTModel(cfg).to(device), args.weights_source)
+    model = load_model(GPTModel(model_cfg).to(device), args.weights_source)
     model.eval()
 
+    ctx = dict(model=model, tokenizer=tokenizer, device=device,
+               prompt=args.prompt, num_tokens=args.num_tokens,
+               context_length=model_cfg.context_length)
+
     print("\n\n--- Generated Text ---")
-    output_greedy = generate_greedy(
-        model, tokenizer, device, args.prompt, num_tokens=args.num_tokens
-    )
-    print("\n Greedy:", output_greedy)
-    output_temperature = generate_temperature(
-        model, tokenizer, device, args.prompt, num_tokens=args.num_tokens, temperature=0.7
-    )
-    print("\n Temperature:", output_temperature)
-    output_top_k = generate_top_k(
-        model,
-        tokenizer,
-        device,
-        args.prompt,
-        num_tokens=args.num_tokens,
-        k=50,
-        temperature=0.7,
-    )
-    print("\n Top-k:", output_top_k)
-    output_top_p = generate_top_p(
-        model,
-        tokenizer,
-        device,
-        args.prompt,
-        num_tokens=args.num_tokens,
-        p=0.9,
-        temperature=0.7,
-    )
-    print("\n Top-p:", output_top_p)
+    print("\n Greedy:     ", generate(**ctx, strategy="greedy"))
+    print("\n Temperature:", generate(**ctx, strategy="temperature", temperature=0.7))
+    print("\n Top-k:      ", generate(**ctx, strategy="top_k", k=50, temperature=0.7))
+    print("\n Top-p:      ", generate(**ctx, strategy="top_p", p=0.9, temperature=0.7))

@@ -1,31 +1,31 @@
 import torch
-from src.model.config import GPT124M_CONFIG, DEFAULT_DATA_URL, DEFAULT_DATASET_PATH
+from src.model.config import GPT124M_MODEL, GPT124M_TRAIN, DEFAULT_DATA_URL, DEFAULT_DATASET_PATH
 from src.data.utils import download_text, load_text
-from src.data.dataset import create_gpt_dataloader
+from src.data.pretrain import create_dataloader
 from src.model.gpt import GPTModel
-from src.data.tokenizer import TikTokenizer
-from src.engine.generate import generate_greedy
+from src.data.tokenizer import BPETokenizer
+from src.engine.generate import generate
 
 
 def main():
-    torch.manual_seed(22)
-    cfg = GPT124M_CONFIG
+    torch.manual_seed(GPT124M_TRAIN.seed)
+    model_cfg = GPT124M_MODEL
 
     print("Downloading/loading text...")
     download_text(DEFAULT_DATA_URL, DEFAULT_DATASET_PATH)
     raw_text = load_text(DEFAULT_DATASET_PATH)
     print(f"Loaded text: {len(raw_text)} characters")
 
-    tokenizer = TikTokenizer("gpt2")
+    tokenizer = BPETokenizer("gpt2")
 
     num_workers = 0  # Override for Windows compatibility
 
-    dataloader = create_gpt_dataloader(
+    dataloader = create_dataloader(
         raw_text,
         tokenizer=tokenizer,
-        max_len=cfg.context_window_size,
-        stride=cfg.stride,
-        batch_size=cfg.batch_size,
+        seq_len=model_cfg.context_length,
+        stride=GPT124M_TRAIN.stride,
+        batch_size=GPT124M_TRAIN.batch_size,
         num_workers=num_workers
     )
     print(f"Dataset size: {len(dataloader.dataset)} samples")
@@ -36,7 +36,7 @@ def main():
     print(f"Input text:  {tokenizer.decode(sample_inputs[0].tolist())[:100]}...")
     print(f"Target text: {tokenizer.decode(sample_targets[0].tolist())[:100]}...")
 
-    model = GPTModel(cfg)
+    model = GPTModel(model_cfg)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"\nGPTModel — {total_params:,} params")
 
@@ -78,7 +78,8 @@ def main():
 
     # --- Generation ---
     prompt = "Gisburn had a curious smile in his eyes"
-    result = generate_greedy(model, tokenizer, torch.device("cpu"), prompt, num_tokens=20)
+    result = generate(model, tokenizer, torch.device("cpu"), prompt, num_tokens=20,
+                      context_length=model_cfg.context_length)
     print("Generated:", result)
 
 

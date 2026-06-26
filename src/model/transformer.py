@@ -2,11 +2,11 @@ import torch.nn as nn
 from src.model.norm import LayerNorm
 from src.model.feed_forward import FeedForwardNetwork
 from src.model.attention import MultiHeadAttentionSDPA
-from src.model.config import GPTConfig
+from src.model.config import ModelConfig
 
 
 class Transformer(nn.Module):
-    def __init__(self, config: GPTConfig):
+    def __init__(self, config: ModelConfig):
         super().__init__()
         self.norm1 = LayerNorm(config.embed_dim)
         self.attn = MultiHeadAttentionSDPA(

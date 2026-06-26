@@ -6,8 +6,8 @@ import requests
 import torch
 import torch.nn.functional as F
 
-from src.data.dataset import GPT2_EOS_TOKEN_ID
-from src.data.tokenizer import TikTokenizer
+from src.data.finetune import GPT2_EOS_TOKEN_ID
+from src.data.tokenizer import BPETokenizer
 from src.model.config import DEFAULT_OUTPUT_DIR
 from fine_tune_model import DEFAULT_CLASSIFIER_FILENAME, load_model
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(weights_path, map_location="cpu", weights_only=True))
     model.eval()
 
-    tokenizer = TikTokenizer("gpt2")
+    tokenizer = BPETokenizer("gpt2")
     tokens = tokenizer.encode(args.prompt)[:MAX_LEN]
     tokens += [GPT2_EOS_TOKEN_ID] * (MAX_LEN - len(tokens))
     inputs = torch.tensor([tokens], device=device)
